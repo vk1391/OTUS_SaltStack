@@ -14,10 +14,6 @@ nginx:
       - service: nginx
   iptables.append:
     - table: filter
-    - chain: INPUT
-    - jump: DROP
-    - protocol: tcp
-    - table: filter
     - family: ipv4
     - chain: INPUT
     - jump: ACCEPT
