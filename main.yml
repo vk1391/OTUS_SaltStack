@@ -1,0 +1,88 @@
+---
+- hosts: salt-master
+  become: true
+  tasks:
+    - name: add repos
+      shell: '{{ item }}'
+      with_items:
+        - sudo rpm --import https://repo.saltproject.io/salt/py3/redhat/7/x86_64/SALT-PROJECT-GPG-PUBKEY-2023.pub
+        - curl -fsSL https://repo.saltproject.io/salt/py3/redhat/7/x86_64/3006.repo | sudo tee /etc/yum.repos.d/salt.repo 
+    - name: clear cache
+      command: sudo yum clean expire-cache
+    - name: install salt-master
+      yum:
+        name: salt-master 
+        state: present
+    - name: start master
+      systemd:
+        name: salt-master
+        state: started
+        enabled: true
+    - name: generete ssh keypair
+      openssh_keypair:
+        path: /home/vagrant/.ssh/id_ssh_rsa
+        owner: vagrant
+        group: vagrant
+    - name: register hostname
+      command: hostname
+      register: hostname
+    - name: conf /etc/hosts
+      copy:
+        content: |
+          127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+          ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+          127.0.1.1 {{ hostname.stdout }} {{ hostname.stdout }}
+          192.168.56.205 salt
+          192.168.56.206 salt-minion1
+          192.168.56.207 salt-minion2
+        dest: /etc/hosts
+    - name: create root salt dir
+      file:
+        path: /srv/salt
+        state: directory
+    - name: copy files
+      copy:
+        src: ./formulas/
+        dest: /srv/salt/
+- hosts: salt-minion1,salt-minion2
+  become: true
+  tasks:
+    - name: add repos
+      shell: '{{ item }}'
+      with_items:
+        - sudo rpm --import https://repo.saltproject.io/salt/py3/redhat/7/x86_64/SALT-PROJECT-GPG-PUBKEY-2023.pub
+        - curl -fsSL https://repo.saltproject.io/salt/py3/redhat/7/x86_64/3006.repo | sudo tee /etc/yum.repos.d/salt.repo 
+    - name: clear cache
+      command: sudo yum clean expire-cache
+    - name: install salt-minion
+      yum:
+        name: salt-minion 
+        state: present
+    - name: start minion
+      systemd:
+        name: salt-minion
+        state: started
+        enabled: true  
+    - name: modify sshd_config
+      shell: |
+        sed -i "s/PasswordAuthentication no/PasswordAuthentication yes/" /etc/ssh/sshd_config; systemctl restart sshd
+    - name: register hostname
+      command: hostname
+      register: hostname
+    - name: conf /etc/hosts
+      copy:
+        content: |
+          127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+          ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+          127.0.1.1 {{ hostname.stdout }} {{ hostname.stdout }}
+          192.168.56.205 salt
+          192.168.56.206 salt-minion1
+          192.168.56.207 salt-minion2
+        dest: /etc/hosts
+      
+  
+    
+    
+
+
+  
